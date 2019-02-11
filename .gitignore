@@ -24,6 +24,7 @@ CMakeScripts
 Makefile
 cmake_install.cmake
 install_manifest.txt
-tritedb.build
+crisp.build
 prof_output
 test.py
+crisp
