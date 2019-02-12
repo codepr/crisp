@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2018, Andrea Giacomo Baldan All rights reserved.
+ * Copyright (c) 2019, Andrea Giacomo Baldan All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,13 +35,59 @@
 
 
 struct runtime {
-    struct context *ctx;
+    Context *ctx;
 };
 
+/* Global context for the language runtime */
+static struct runtime runtime = { .ctx = &(Context) {0}};
 
-static struct runtime runtime = {
-    .ctx = &(struct context) {0}
-};
+
+static void context_add_builtin(Context *ctx, char *name, fun *fn) {
+    struct expr *sym_exp = malloc(sizeof(*sym_exp));
+    expr_symbol(sym_exp, name);
+    struct expr *fun_exp = malloc(sizeof(*fun_exp));
+    expr_fun(fun_exp, fn);
+    context_put(ctx, sym_exp, fun_exp);
+}
+
+
+static struct expr *compute_op(struct expr *, char);
+
+
+static struct expr *builtin_add(Context *ctx, struct expr *exp) {
+    return compute_op(exp, '+');
+}
+
+
+static struct expr *builtin_sub(Context *ctx, struct expr *exp) {
+    return compute_op(exp, '-');
+}
+
+
+static struct expr *builtin_mul(Context *ctx, struct expr *exp) {
+    return compute_op(exp, '*');
+}
+
+
+static struct expr *builtin_div(Context *ctx, struct expr *exp) {
+    return compute_op(exp, '/');
+}
+
+
+static struct expr *builtin_mod(Context *ctx, struct expr *exp) {
+    return compute_op(exp, '%');
+}
+
+
+static void context_add_builtins(Context *ctx) {
+
+    context_add_builtin(ctx, "+", builtin_add);
+    context_add_builtin(ctx, "-", builtin_sub);
+    context_add_builtin(ctx, "*", builtin_mul);
+    context_add_builtin(ctx, "/", builtin_div);
+    context_add_builtin(ctx, "%", builtin_mod);
+    return;
+}
 
 
 static struct expr *compute_op(struct expr *exp, char operator) {

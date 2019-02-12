@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2018, Andrea Giacomo Baldan All rights reserved.
+ * Copyright (c) 2019, Andrea Giacomo Baldan All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,10 +29,28 @@
 #include "core.h"
 
 
-void context_init(struct context *ctx) {
-    ctx->count = 0;
-    ctx->capacity = 4;
-    ctx->funcs = malloc(ctx->capacity * sizeof(struct function *));
+void context_init(Context *ctx) {
+    hashtable_init(ctx, NULL);
+}
+
+
+void context_release(Context *ctx) {
+    hashtable_release(ctx);
+}
+
+
+int context_put(Context *ctx, struct expr *esym, struct expr *efun) {
+    return hashtable_put(ctx, esym->symbol, efun);
+}
+
+
+struct expr *context_get(Context *ctx, struct expr *exp) {
+    return hashtable_get(ctx, exp->symbol);
+}
+
+
+int context_del(Context *ctx, struct expr *exp) {
+    return hashtable_del(ctx, exp->symbol);
 }
 
 
@@ -92,6 +110,12 @@ void expr_err(struct expr *exp, char *err) {
     exp->etype = ERROR;
     strncpy(exp->err, err, MAX_ERR_SIZE);
     exp->err[MAX_ERR_SIZE - 1] = '\0';
+}
+
+
+void expr_fun(struct expr *exp, fun *fn) {
+    exp->etype = FUNCTION;
+    exp->fn = fn;
 }
 
 

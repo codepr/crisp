@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2018, Andrea Giacomo Baldan All rights reserved.
+ * Copyright (c) 2019, Andrea Giacomo Baldan All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include "hashtable.h"
 
 
 #define ZLISP_VERSION       "0.0.1"
@@ -55,17 +56,19 @@ typedef enum {
 } extype;
 
 
-struct context {
-    int count;
-    int capacity;
-    struct function {
-        char *symbol;
-        struct expr *exp;
-    } **funcs;
-};
+typedef HashTable Context;
+
+// struct context {
+//     int count;
+//     int capacity;
+//     struct function {
+//         char *symbol;
+//         struct expr *exp;
+//     } **funcs;
+// };
 
 
-typedef struct expr fun(struct context *, struct expr *);
+typedef struct expr *fun(Context *, struct expr *);
 
 
 struct expr {
@@ -86,7 +89,15 @@ struct expr {
 };
 
 
-void context_init(struct context *);
+void context_init(Context *);
+
+void context_release(Context *);
+
+int context_put(Context *, struct expr *, struct expr *);
+
+struct expr *context_get(Context *, struct expr *);
+
+int context_del(Context *, struct expr *);
 
 void expr_string(struct expr *, char *);
 
