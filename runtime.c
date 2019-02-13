@@ -30,8 +30,14 @@
 #include "builtins.h"
 
 #include <stdio.h>
+#include <strings.h>
 
-#define IS_SPACE(c)     (c == ' ' || c == '\n')
+#define IS_SPACE(c)    (c == ' ' || c == '\n')
+
+#define STREQ(s1, s2)  (strncasecmp(s1, s2, strlen(s1)) == 0)
+
+
+static void expr_print(struct expr *);
 
 
 struct runtime {
@@ -81,11 +87,23 @@ static struct expr *builtin_mod(Context *ctx, struct expr *exp) {
 
 static void context_add_builtins(Context *ctx) {
 
+    /* Basic math operations */
     context_add_builtin(ctx, "+", builtin_add);
     context_add_builtin(ctx, "-", builtin_sub);
     context_add_builtin(ctx, "*", builtin_mul);
     context_add_builtin(ctx, "/", builtin_div);
     context_add_builtin(ctx, "%", builtin_mod);
+
+    /* Q-expressions functions */
+    context_add_builtin(ctx, "def", builtin_def);
+    context_add_builtin(ctx, "len", builtin_len);
+    context_add_builtin(ctx, "head", builtin_head);
+    context_add_builtin(ctx, "tail", builtin_tail);
+    context_add_builtin(ctx, "init", builtin_init);
+    context_add_builtin(ctx, "last", builtin_last);
+    context_add_builtin(ctx, "eval", builtin_eval);
+    context_add_builtin(ctx, "list", builtin_list);
+
     return;
 }
 
@@ -139,35 +157,10 @@ static struct expr *compute_op(struct expr *exp, char operator) {
 }
 
 
-static struct expr *compute(struct expr *exp, char *symbol) {
-
-    if (strcmp("len", symbol) == 0)
-        return builtin_len(exp);
-    if (strcmp("head", symbol) == 0)
-        return builtin_head(exp);
-    if (strcmp("last", symbol) == 0)
-        return builtin_last(exp);
-    if (strcmp("init", symbol) == 0)
-        return builtin_init(exp);
-    if (strcmp("eval", symbol) == 0)
-        return builtin_eval(exp);
-    if (strcmp("tail", symbol) == 0)
-        return builtin_tail(exp);
-    if (strcmp("list", symbol) == 0)
-        return builtin_list(exp);
-    if (strstr("+-*/%", symbol))
-        return compute_op(exp, *symbol);
-
-    expr_err(exp, ERR_UNDEFINED_SYM);
-
-    return exp;
-}
-
-
-static struct expr *expr_eval(struct expr *exp) {
+static struct expr *expr_eval(Context *ctx, struct expr *exp) {
 
     for (int i = 0; i < exp->count; i++)
-        exp->children[i] = eval(exp->children[i]);
+        exp->children[i] = eval(ctx, exp->children[i]);
 
     for (int i = 0; i < exp->count; i++)
         if (exp->children[i] && exp->children[i]->etype == ERROR)
@@ -181,23 +174,26 @@ static struct expr *expr_eval(struct expr *exp) {
 
     struct expr *sxp = expr_pop(exp, 0);
 
-    if (sxp->etype != SYMBOL) {
+    if (sxp->etype != FUNCTION) {
         expr_del(sxp);
-        expr_err(exp, "Not a symbol");
+        expr_err(exp, "Not a function");
         return exp;
     }
 
-    struct expr *result = compute(exp, sxp->symbol);
+    struct expr *result = sxp->fn(ctx, exp);
     expr_del(sxp);
 
     return result;
 }
 
 
-struct expr *eval(struct expr *exp) {
+struct expr *eval(Context *ctx, struct expr *exp) {
+
+    if (exp && exp->etype == SYMBOL)
+        return context_get(ctx, exp);
 
     if (exp && exp->etype == SEXP)
-        return expr_eval(exp);
+        return expr_eval(ctx, exp);
 
     return exp;
 }
@@ -250,25 +246,27 @@ static void expr_print(struct expr *exp) {
 }
 
 
-static struct expr *parse_expr(char **buf) {
+static struct expr *parse_expr(char **buf, bool is_qexp) {
 
-    if (!**buf)
-        return NULL;
+    while (**buf && IS_SPACE(**buf)) (*buf)++;
 
-    while (IS_SPACE(**buf)) (*buf)++;
-
-    if (!**buf)
-        return NULL;
+    if (!**buf) {
+        struct expr *exp = malloc(sizeof(*exp));
+        expr_end(exp);
+        return exp;
+    }
 
     struct expr *exp = malloc(sizeof(*exp));
 
     if (**buf == '(' || **buf == '\'') {
         expr_sexp(exp);
-        if (**buf == '\'')
+        if (**buf == '\'') {
+            is_qexp = true;
             exp->etype = QEXP;
+        }
         (*buf)++;
         while (**buf && **buf != ')')
-            exp = expr_append(exp, parse_expr(buf));
+            exp = expr_append(exp, parse_expr(buf, is_qexp));
         (*buf)++;
     } else if (**buf == ')') {
         expr_end(exp);
@@ -317,29 +315,46 @@ static struct expr *parse_expr(char **buf) {
 
     } else {
 
-        if (strncmp("head", *buf, 4) == 0) {
+        if (STREQ("head", *buf)) {
             expr_symbol(exp, "head");
             (*buf) += 4;
-        } else if (strncmp("len", *buf, 3) == 0) {
+        } else if (STREQ("len", *buf)) {
             expr_symbol(exp, "len");
             (*buf) += 3;
-        } else if (strncmp("last", *buf, 4) == 0) {
+        } else if (STREQ("last", *buf)) {
             expr_symbol(exp, "last");
             (*buf) += 4;
-        } else if (strncmp("init", *buf, 4) == 0) {
+        } else if (STREQ("init", *buf)) {
             expr_symbol(exp, "init");
             (*buf) += 4;
-        } else if (strncmp("eval", *buf, 4) == 0) {
+        } else if (STREQ("eval", *buf)) {
             expr_symbol(exp, "eval");
             (*buf) += 4;
-        } else if (strncmp("tail", *buf, 4) == 0) {
+        } else if (STREQ("tail", *buf)) {
             expr_symbol(exp, "tail");
             (*buf) += 4;
-        } else if (strncmp("list", *buf, 4) == 0) {
+        } else if (STREQ("list", *buf)) {
             expr_symbol(exp, "list");
             (*buf) += 4;
+        } else if (STREQ("def", *buf)) {
+            expr_symbol(exp, "def");
+            (*buf) += 3;
         } else {
-            expr_err(exp, "Unknown token");
+            if (is_qexp) {
+                char tmp[MAX_SYM_SIZE];
+                int i = 0;
+                for (i = 0; i < MAX_SYM_SIZE; i++) {
+                    if (IS_SPACE(**buf))
+                        break;
+                    tmp[i] = *((*buf)++);
+                }
+                tmp[i] = '\0';
+                expr_symbol(exp, tmp);
+                /* (*buf) += i; */
+            } else {
+                expr_err(exp, "Unknown token");
+                /* (*buf)++; */
+            }
             (*buf)++;
         }
     }
@@ -361,7 +376,7 @@ static struct expr *parse(char *buf) {
     }
 
     while (*buf)
-        expr_append(exp, parse_expr(&buf));
+        expr_append(exp, parse_expr(&buf, true));
 
     return exp;
 }
@@ -374,6 +389,7 @@ int main(void) {
     banner();
 
     context_init(runtime.ctx);
+    context_add_builtins(runtime.ctx);
 
     while (fgets(buf, 256, stdin)) {
 
@@ -390,7 +406,7 @@ int main(void) {
         if (expr_peek(exp, 0)->etype != SYMBOL) {
             expr_print(exp);
         } else {
-            struct expr *sxp = eval(exp);
+            struct expr *sxp = eval(runtime.ctx, exp);
 
             expr_print(sxp);
 

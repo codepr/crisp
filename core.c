@@ -40,12 +40,19 @@ void context_release(Context *ctx) {
 
 
 int context_put(Context *ctx, struct expr *esym, struct expr *efun) {
-    return hashtable_put(ctx, esym->symbol, efun);
+    printf("adding symbol to context %s\n", esym->symbol);
+    return hashtable_put(ctx, esym->symbol, expr_copy(efun));
 }
 
 
 struct expr *context_get(Context *ctx, struct expr *exp) {
-    return hashtable_get(ctx, exp->symbol);
+    struct expr *e = hashtable_get(ctx, exp->symbol);
+    if (!e) {
+        struct expr *err = malloc(sizeof(*err));
+        expr_err(err, "Unbound symbol");
+        return err;
+    }
+    return expr_copy(e);
 }
 
 
@@ -188,5 +195,48 @@ void expr_del(struct expr *v) {
 struct expr *expr_take(struct expr *v, int i) {
     struct expr *x = expr_pop(v, i);
     expr_del(v);
+    return x;
+}
+
+
+struct expr *expr_copy(struct expr *exp) {
+
+    if (!exp)
+        return NULL;
+
+    struct expr *x = malloc(sizeof(*x));
+    x->etype = exp->etype;
+
+    switch (exp->etype) {
+        case FUNCTION:
+            x->fn = exp->fn;
+            break;
+        case INTEGER:
+            x->integer = exp->integer;
+            break;
+        case DECIMAL:
+            x->decimal = exp->decimal;
+            break;
+        case SYMBOL:
+            strcpy(x->symbol, exp->symbol);
+            break;
+        case SEXP:
+        case QEXP:
+            x->count = exp->count;
+            x->children = malloc(x->count * sizeof(struct expr *));
+            for (int i = 0; i < x->count; i++)
+                x->children[i] = expr_copy(exp->children[i]);
+            break;
+        case ERROR:
+            strcpy(x->err, exp->err);
+            break;
+        case STRING:
+            x->string = malloc(strlen(exp->string) + 1);
+            strcpy(x->string, exp->string);
+            break;
+        default:
+            break;
+    }
+
     return x;
 }

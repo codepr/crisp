@@ -32,10 +32,30 @@
 #include <stdio.h>
 
 
-struct expr *builtin_len(struct expr *exp) {
+struct expr *builtin_def(Context *ctx, struct expr *exp) {
 
     if (exp->children[0]->etype != QEXP) {
-        expr_err(exp, "Function 'init' passed incorrect types!");
+        expr_err(exp, "Function 'def' passed incorrect types!");
+        return exp;
+    }
+
+    struct expr *e = exp->children[0];
+
+    for (int i = 0; i < e->count; i++)
+        context_put(ctx, e->children[i], exp->children[i + 1]);
+
+    expr_del(exp);
+
+    struct expr *aexp = malloc(sizeof(*aexp));
+    expr_sexp(aexp);
+    return aexp;
+}
+
+
+struct expr *builtin_len(Context *ctx, struct expr *exp) {
+
+    if (exp->children[0]->etype != QEXP) {
+        expr_err(exp, "Function 'len' passed incorrect types!");
         return exp;
     }
 
@@ -45,7 +65,7 @@ struct expr *builtin_len(struct expr *exp) {
 }
 
 
-struct expr *builtin_init(struct expr *exp) {
+struct expr *builtin_init(Context *ctx, struct expr *exp) {
 
     if (exp->children[0]->etype != QEXP) {
         expr_err(exp, "Function 'init' passed incorrect types!");
@@ -69,7 +89,7 @@ struct expr *builtin_init(struct expr *exp) {
 }
 
 
-struct expr *builtin_head(struct expr *exp) {
+struct expr *builtin_head(Context *ctx, struct expr *exp) {
 
     if (exp->children[0]->etype != QEXP) {
         expr_err(exp, "Function 'head' passed incorrect types!");
@@ -95,7 +115,7 @@ struct expr *builtin_head(struct expr *exp) {
 }
 
 
-struct expr *builtin_last(struct expr *exp) {
+struct expr *builtin_last(Context *ctx, struct expr *exp) {
 
     if (exp->children[0]->etype != QEXP) {
         expr_err(exp, "Function 'last' passed incorrect types!");
@@ -119,7 +139,7 @@ struct expr *builtin_last(struct expr *exp) {
 }
 
 
-struct expr *builtin_tail(struct expr *exp) {
+struct expr *builtin_tail(Context *ctx, struct expr *exp) {
 
     if (exp->children[0]->etype != QEXP) {
         expr_err(exp, "Function 'tail' passed incorrect types!");
@@ -142,13 +162,13 @@ struct expr *builtin_tail(struct expr *exp) {
 }
 
 
-struct expr *builtin_list(struct expr *exp) {
+struct expr *builtin_list(Context *ctx, struct expr *exp) {
     exp->etype = QEXP;
     return exp;
 }
 
 
-struct expr *builtin_eval(struct expr *exp) {
+struct expr *builtin_eval(Context *ctx, struct expr *exp) {
 
     if (exp->children[0]->etype != QEXP) {
         expr_err(exp, "Function 'eval' passed incorrect types!");
@@ -158,7 +178,7 @@ struct expr *builtin_eval(struct expr *exp) {
     struct expr *x = expr_take(expr_take(exp, 0), 0);
     x->etype = SEXP;
 
-    return eval(x);
+    return eval(ctx, x);
 }
 
 

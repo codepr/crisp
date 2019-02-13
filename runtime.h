@@ -32,7 +32,7 @@
 #include "core.h"
 
 
-struct expr *eval(struct expr *);
+struct expr *eval(Context *, struct expr *);
 
 
 #endif

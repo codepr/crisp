@@ -32,19 +32,21 @@
 #include "core.h"
 
 
-struct expr *builtin_len(struct expr *);
+struct expr *builtin_def(Context *, struct expr *);
 
-struct expr *builtin_init(struct expr *);
+struct expr *builtin_len(Context *, struct expr *);
 
-struct expr *builtin_head(struct expr *);
+struct expr *builtin_init(Context *, struct expr *);
 
-struct expr *builtin_last(struct expr *);
+struct expr *builtin_head(Context *, struct expr *);
 
-struct expr *builtin_tail(struct expr *);
+struct expr *builtin_last(Context *, struct expr *);
 
-struct expr *builtin_list(struct expr *);
+struct expr *builtin_tail(Context *, struct expr *);
 
-struct expr *builtin_eval(struct expr *);
+struct expr *builtin_list(Context *, struct expr *);
+
+struct expr *builtin_eval(Context *, struct expr *);
 
 struct expr *builtin_integer_op(struct expr *, char, long long, long long);
 

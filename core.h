@@ -129,5 +129,6 @@ void expr_del(struct expr *);
 
 struct expr *expr_take(struct expr *, int);
 
+struct expr *expr_copy(struct expr *);
 
 #endif
