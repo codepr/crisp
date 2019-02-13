@@ -104,8 +104,8 @@ struct expr *builtin_head(Context *ctx, struct expr *exp) {
     /* Otherwise take first argument */
     struct expr *v = expr_take(exp, 0);
 
-    if (expr_peek(v, 0)->etype == SEXP || expr_peek(v, 0)->etype == QEXP)
-        v = expr_take(v, 0);
+    /* if (expr_peek(v, 0)->etype == SEXP || expr_peek(v, 0)->etype == QEXP) */
+    /*     v = expr_take(v, 0); */
 
     /* Delete all elements that are not head and return */
     while (v->count > 1)
@@ -123,7 +123,7 @@ struct expr *builtin_last(Context *ctx, struct expr *exp) {
     }
 
     if (exp->children[0]->count == 0) {
-        expr_err(exp, "function 'head' passed '!");
+        expr_err(exp, "function 'last' passed '!");
         return exp;
     }
 
@@ -153,8 +153,8 @@ struct expr *builtin_tail(Context *ctx, struct expr *exp) {
 
     struct expr *v = expr_take(exp, 0);
 
-    if (expr_peek(v, 0)->etype == SEXP || expr_peek(v, 0)->etype == QEXP)
-        v = expr_take(v, 0);
+    /* if (expr_peek(v, 0)->etype == SEXP || expr_peek(v, 0)->etype == QEXP) */
+    /*     v = expr_take(v, 0); */
 
     expr_del(expr_pop(v, 0));
 
@@ -176,6 +176,7 @@ struct expr *builtin_eval(Context *ctx, struct expr *exp) {
     }
 
     struct expr *x = expr_take(expr_take(exp, 0), 0);
+    /* struct expr *x = expr_take(exp, 0); */
     x->etype = SEXP;
 
     return eval(ctx, x);

@@ -214,6 +214,7 @@ static void expr_print(struct expr *exp) {
     switch (exp->etype) {
         case SEXP:
             printf("(");
+            printf("%d ", exp->count);
             for (int i = 0; i < exp->count; i++)
                 expr_print(exp->children[i]);
             printf(")");
@@ -246,7 +247,7 @@ static void expr_print(struct expr *exp) {
 }
 
 
-static struct expr *parse_expr(char **buf, bool is_qexp) {
+static struct expr *parse_expr(char **buf, bool *is_qexp, int *parens) {
 
     while (**buf && IS_SPACE(**buf)) (*buf)++;
 
@@ -258,18 +259,33 @@ static struct expr *parse_expr(char **buf, bool is_qexp) {
 
     struct expr *exp = malloc(sizeof(*exp));
 
-    if (**buf == '(' || **buf == '\'') {
-        expr_sexp(exp);
-        if (**buf == '\'') {
-            is_qexp = true;
-            exp->etype = QEXP;
+    if (**buf == '\'') {
+        expr_qexp(exp);
+        (*buf)++;
+        *is_qexp = true;
+        do {
+            expr_append(exp, parse_expr(buf, is_qexp, parens));
+        } while (*parens > 0);
+        printf("qexp count %d\n", exp->count);
+        /* (*buf)++; */
+    } else if (**buf == '(') {
+        printf(">start parens %d\n", *parens);
+        if (*is_qexp) {
+            (*parens)++;
         }
+        expr_sexp(exp);
         (*buf)++;
         while (**buf && **buf != ')')
-            exp = expr_append(exp, parse_expr(buf, is_qexp));
-        (*buf)++;
+            exp = expr_append(exp, parse_expr(buf, is_qexp, parens));
+        /* (*buf)++; */
     } else if (**buf == ')') {
+        printf(">end parens %d\n", *parens);
         expr_end(exp);
+        if (*is_qexp) {
+            (*parens)--;
+            if (*parens == 0)
+                *is_qexp = false;
+        }
         (*buf)++;
     } else if (**buf == '+' || **buf == '-' || **buf == '*'
                || **buf == '/' || **buf == '%') {
@@ -340,21 +356,21 @@ static struct expr *parse_expr(char **buf, bool is_qexp) {
             expr_symbol(exp, "def");
             (*buf) += 3;
         } else {
-            if (is_qexp) {
-                char tmp[MAX_SYM_SIZE];
-                int i = 0;
-                for (i = 0; i < MAX_SYM_SIZE; i++) {
-                    if (IS_SPACE(**buf))
-                        break;
-                    tmp[i] = *((*buf)++);
-                }
-                tmp[i] = '\0';
-                expr_symbol(exp, tmp);
-                /* (*buf) += i; */
-            } else {
+            /* if (is_qexp) { */
+            /*     char tmp[MAX_SYM_SIZE]; */
+            /*     int i = 0; */
+            /*     for (i = 0; i < MAX_SYM_SIZE; i++) { */
+            /*         if (IS_SPACE(**buf)) */
+            /*             break; */
+            /*         tmp[i] = *((*buf)++); */
+            /*     } */
+            /*     tmp[i] = '\0'; */
+            /*     expr_symbol(exp, tmp); */
+            /*     #<{(| (*buf) += i; |)}># */
+            /* } else { */
                 expr_err(exp, "Unknown token");
                 /* (*buf)++; */
-            }
+            /* } */
             (*buf)++;
         }
     }
@@ -367,16 +383,19 @@ static struct expr *parse(char *buf) {
 
     struct expr *exp = malloc(sizeof(*exp));
     expr_sexp(exp);
+    bool is_exp = false;
+    int parens = 0;
 
     if (*buf == '(') {
         buf++;
     } else if (*buf == '\'') {
         exp->etype = QEXP;
         buf++;
+        is_exp = true;
     }
 
     while (*buf)
-        expr_append(exp, parse_expr(&buf, true));
+        expr_append(exp, parse_expr(&buf, &is_exp, &parens));
 
     return exp;
 }

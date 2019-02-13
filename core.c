@@ -40,7 +40,6 @@ void context_release(Context *ctx) {
 
 
 int context_put(Context *ctx, struct expr *esym, struct expr *efun) {
-    printf("adding symbol to context %s\n", esym->symbol);
     return hashtable_put(ctx, esym->symbol, expr_copy(efun));
 }
 
