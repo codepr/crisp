@@ -59,6 +59,10 @@ static void context_add_builtin(Context *ctx, char *name, fun *fn) {
 
 static struct expr *compute_op(struct expr *, char);
 
+static struct expr *compute_abs(struct expr *);
+
+static struct expr *compute_sqrt(struct expr *);
+
 
 static struct expr *builtin_add(Context *ctx, struct expr *exp) {
     return compute_op(exp, '+');
@@ -85,6 +89,21 @@ static struct expr *builtin_mod(Context *ctx, struct expr *exp) {
 }
 
 
+static struct expr *builtin_eq(Context *ctx, struct expr *exp) {
+    return compute_op(exp, '=');
+}
+
+
+static struct expr *builtin_abs(Context *ctx, struct expr *exp) {
+    return compute_abs(exp);
+}
+
+
+static struct expr *builtin_sqrt(Context *ctx, struct expr *exp) {
+    return compute_sqrt(exp);
+}
+
+
 static void context_add_builtins(Context *ctx) {
 
     /* Basic math operations */
@@ -93,6 +112,7 @@ static void context_add_builtins(Context *ctx) {
     context_add_builtin(ctx, "*", builtin_mul);
     context_add_builtin(ctx, "/", builtin_div);
     context_add_builtin(ctx, "%", builtin_mod);
+    context_add_builtin(ctx, "=", builtin_eq);
 
     /* Q-expressions functions */
     context_add_builtin(ctx, "def", builtin_def);
@@ -103,8 +123,22 @@ static void context_add_builtins(Context *ctx) {
     context_add_builtin(ctx, "last", builtin_last);
     context_add_builtin(ctx, "eval", builtin_eval);
     context_add_builtin(ctx, "list", builtin_list);
+    context_add_builtin(ctx, "sqrt", builtin_sqrt);
+    context_add_builtin(ctx, "abs", builtin_abs);
+}
 
-    return;
+
+static struct expr *compute_abs(struct expr *exp) {
+    struct expr *x = expr_pop(exp, 0);
+    return x->etype == INTEGER ? builtin_integer_abs(x, x->integer)
+        : builtin_decimal_abs(x, x->decimal);
+}
+
+
+static struct expr *compute_sqrt(struct expr *exp) {
+    struct expr *x = expr_pop(exp, 0);
+    return x->etype == INTEGER ? builtin_integer_sqrt(x, x->integer)
+        : builtin_decimal_sqrt(x, x->decimal);
 }
 
 
@@ -189,10 +223,10 @@ static struct expr *expr_eval(Context *ctx, struct expr *exp) {
 
 struct expr *eval(Context *ctx, struct expr *exp) {
 
-    if (exp && exp->etype == SYMBOL)
+    if (exp->etype == SYMBOL)
         return context_get(ctx, exp);
 
-    if (exp && exp->etype == SEXP)
+    if (exp->etype == SEXP)
         return expr_eval(ctx, exp);
 
     return exp;
@@ -200,9 +234,9 @@ struct expr *eval(Context *ctx, struct expr *exp) {
 
 
 static inline void banner(void) {
-    printf("\nStart zlisp REPL v%s\n", ZLISP_VERSION);
+    printf("\nStart crisp REPL v%s\n", CRISP_VERSION);
     printf("Press Ctrl+c to exit\n\n");
-    printf("zlisp> ");
+    printf("crisp> ");
 }
 
 
@@ -214,7 +248,6 @@ static void expr_print(struct expr *exp) {
     switch (exp->etype) {
         case SEXP:
             printf("(");
-            printf("%d ", exp->count);
             for (int i = 0; i < exp->count; i++)
                 expr_print(exp->children[i]);
             printf(")");
@@ -229,6 +262,12 @@ static void expr_print(struct expr *exp) {
             break;
         case DECIMAL:
             printf("%lf ", exp->decimal);
+            break;
+        case COMPLEX:
+            printf("%lfi ", exp->decimal);
+            break;
+        case BOOLEAN:
+            printf("#%c ", exp->value == true ? 't' : 'f');
             break;
         case SYMBOL:
             printf("%s ", exp->symbol);
@@ -251,35 +290,34 @@ static struct expr *parse_expr(char **buf, bool *is_qexp, int *parens) {
 
     while (**buf && IS_SPACE(**buf)) (*buf)++;
 
+    struct expr *exp = malloc(sizeof(*exp));
+
     if (!**buf) {
-        struct expr *exp = malloc(sizeof(*exp));
         expr_end(exp);
         return exp;
     }
-
-    struct expr *exp = malloc(sizeof(*exp));
 
     if (**buf == '\'') {
         expr_qexp(exp);
         (*buf)++;
         *is_qexp = true;
         do {
-            expr_append(exp, parse_expr(buf, is_qexp, parens));
+            exp = expr_append(exp, parse_expr(buf, is_qexp, parens));
         } while (*parens > 0);
-        printf("qexp count %d\n", exp->count);
-        /* (*buf)++; */
     } else if (**buf == '(') {
-        printf(">start parens %d\n", *parens);
-        if (*is_qexp) {
+        if (*is_qexp)
             (*parens)++;
-        }
         expr_sexp(exp);
         (*buf)++;
         while (**buf && **buf != ')')
             exp = expr_append(exp, parse_expr(buf, is_qexp, parens));
-        /* (*buf)++; */
+        (*buf)++;
+        if (*is_qexp) {
+            (*parens)--;
+            if (*parens == 0)
+                *is_qexp = false;
+        }
     } else if (**buf == ')') {
-        printf(">end parens %d\n", *parens);
         expr_end(exp);
         if (*is_qexp) {
             (*parens)--;
@@ -288,7 +326,7 @@ static struct expr *parse_expr(char **buf, bool *is_qexp, int *parens) {
         }
         (*buf)++;
     } else if (**buf == '+' || **buf == '-' || **buf == '*'
-               || **buf == '/' || **buf == '%') {
+               || **buf == '/' || **buf == '%' || **buf == '=') {
         expr_operator(exp, **buf);
         (*buf)++;
     } else if ('0' <= **buf && **buf <= '9') {
@@ -328,51 +366,17 @@ static struct expr *parse_expr(char **buf, bool *is_qexp, int *parens) {
         str[i] = '\0';
         (*buf)++;
         expr_string(exp, str);
-
     } else {
-
-        if (STREQ("head", *buf)) {
-            expr_symbol(exp, "head");
-            (*buf) += 4;
-        } else if (STREQ("len", *buf)) {
-            expr_symbol(exp, "len");
-            (*buf) += 3;
-        } else if (STREQ("last", *buf)) {
-            expr_symbol(exp, "last");
-            (*buf) += 4;
-        } else if (STREQ("init", *buf)) {
-            expr_symbol(exp, "init");
-            (*buf) += 4;
-        } else if (STREQ("eval", *buf)) {
-            expr_symbol(exp, "eval");
-            (*buf) += 4;
-        } else if (STREQ("tail", *buf)) {
-            expr_symbol(exp, "tail");
-            (*buf) += 4;
-        } else if (STREQ("list", *buf)) {
-            expr_symbol(exp, "list");
-            (*buf) += 4;
-        } else if (STREQ("def", *buf)) {
-            expr_symbol(exp, "def");
-            (*buf) += 3;
-        } else {
-            /* if (is_qexp) { */
-            /*     char tmp[MAX_SYM_SIZE]; */
-            /*     int i = 0; */
-            /*     for (i = 0; i < MAX_SYM_SIZE; i++) { */
-            /*         if (IS_SPACE(**buf)) */
-            /*             break; */
-            /*         tmp[i] = *((*buf)++); */
-            /*     } */
-            /*     tmp[i] = '\0'; */
-            /*     expr_symbol(exp, tmp); */
-            /*     #<{(| (*buf) += i; |)}># */
-            /* } else { */
-                expr_err(exp, "Unknown token");
-                /* (*buf)++; */
-            /* } */
-            (*buf)++;
+        char tmp[MAX_SYM_SIZE];
+        int i = 0;
+        for (i = 0; i < MAX_SYM_SIZE; i++) {
+            if (IS_SPACE(**buf) || **buf == ')')
+                break;
+            tmp[i] = *((*buf)++);
         }
+        tmp[i] = '\0';
+        expr_symbol(exp, tmp);
+        (*buf)++;
     }
 
     return exp;
@@ -413,7 +417,7 @@ int main(void) {
     while (fgets(buf, 256, stdin)) {
 
         if (strlen(buf) < 2) {
-            printf("zlisp> ");
+            printf("crisp> ");
             continue;
         }
 
@@ -432,7 +436,7 @@ int main(void) {
             expr_del(sxp);
         }
 
-        printf("\nzlisp> ");
+        printf("\ncrisp> ");
 
         memset(buf, 0x00, 256);
 

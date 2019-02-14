@@ -30,6 +30,7 @@
 #include "runtime.h"
 
 #include <stdio.h>
+#include <math.h>
 
 
 struct expr *builtin_def(Context *ctx, struct expr *exp) {
@@ -44,7 +45,7 @@ struct expr *builtin_def(Context *ctx, struct expr *exp) {
     for (int i = 0; i < e->count; i++)
         context_put(ctx, e->children[i], exp->children[i + 1]);
 
-    expr_del(exp);
+    /* expr_del(exp); */
 
     struct expr *aexp = malloc(sizeof(*aexp));
     expr_sexp(aexp);
@@ -127,13 +128,13 @@ struct expr *builtin_last(Context *ctx, struct expr *exp) {
         return exp;
     }
 
-    struct expr *v = expr_take(exp, 0);
+    struct expr *v = expr_take(exp, exp->count - 2);
 
-    if (expr_peek(v, 0)->etype == SEXP || expr_peek(v, 0)->etype == QEXP)
-        v = expr_take(v, 0);
-
-    while (v->count > 1)
-        expr_del(expr_pop(v, 0));
+    /* if (expr_peek(v, 0)->etype == SEXP || expr_peek(v, 0)->etype == QEXP) */
+    /*     v = expr_take(v, 0); */
+    /*  */
+    /* while (v->count > 1) */
+    /*     expr_del(expr_pop(v, 0)); */
 
     return v;
 }
@@ -151,14 +152,15 @@ struct expr *builtin_tail(Context *ctx, struct expr *exp) {
         return exp;
     }
 
-    struct expr *v = expr_take(exp, 0);
+    struct expr *e = malloc(sizeof(*e));
+    expr_sexp(e);
 
-    /* if (expr_peek(v, 0)->etype == SEXP || expr_peek(v, 0)->etype == QEXP) */
-    /*     v = expr_take(v, 0); */
+    for (int i = 1 ; i < exp->count; i++)
+        expr_append(e, expr_copy(exp->children[i]));
 
-    expr_del(expr_pop(v, 0));
+    expr_del(exp);
 
-    return v;
+    return e;
 }
 
 
@@ -176,10 +178,39 @@ struct expr *builtin_eval(Context *ctx, struct expr *exp) {
     }
 
     struct expr *x = expr_take(expr_take(exp, 0), 0);
-    /* struct expr *x = expr_take(exp, 0); */
     x->etype = SEXP;
 
     return eval(ctx, x);
+}
+
+
+struct expr *builtin_integer_abs(struct expr *exp, long long num) {
+    expr_integer(exp, num < 0 ? -1 * num : num);
+    return exp;
+}
+
+
+struct expr *builtin_integer_sqrt(struct expr *exp, long long num) {
+    if (num < 0)
+        expr_complex(exp, sqrt(num));
+    else
+        expr_decimal(exp, sqrt(num));
+    return exp;
+}
+
+
+struct expr *builtin_decimal_abs(struct expr *exp, double num) {
+    expr_decimal(exp, num < 0.0 ? -1.0 * num : num);
+    return exp;
+}
+
+
+struct expr *builtin_decimal_sqrt(struct expr *exp, double num) {
+    if (num < 0)
+        expr_complex(exp, sqrt(num));
+    else
+        expr_decimal(exp, sqrt(num));
+    return exp;
 }
 
 
@@ -207,6 +238,9 @@ struct expr *builtin_integer_op(struct expr *exp, char operator,
             break;
         case '%':
             expr_integer(exp, num1 % num2);
+            break;
+        case '=':
+            expr_boolean(exp, num1 == num2);
             break;
         default:
             expr_err(exp, ERR_INVALID_INT_OP);
@@ -238,6 +272,9 @@ struct expr *builtin_decimal_op(struct expr *exp, char operator,
             }
             else
                 expr_decimal(exp, num1 / num2);
+            break;
+        case '=':
+            expr_boolean(exp, num1 == num2);
             break;
         default:
             expr_err(exp, ERR_INVALID_DEC_OP);

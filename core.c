@@ -78,6 +78,18 @@ void expr_decimal(struct expr *exp, double x) {
 }
 
 
+void expr_complex(struct expr *exp, double x) {
+    exp->etype = COMPLEX;
+    exp->decimal = x;
+}
+
+
+void expr_boolean(struct expr *exp, bool val) {
+    exp->etype = BOOLEAN;
+    exp->value = val;
+}
+
+
 void expr_operator(struct expr *exp, char op) {
     exp->etype = SYMBOL;
     exp->symbol[0] = op;

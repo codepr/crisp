@@ -34,7 +34,7 @@
 #include "hashtable.h"
 
 
-#define ZLISP_VERSION       "0.0.1"
+#define CRISP_VERSION       "0.0.1"
 #define MAX_SYM_SIZE        16
 #define MAX_ERR_SIZE        64
 #define ERR_UNDEFINED_SYM   "Undefined symbol"
@@ -50,6 +50,8 @@ typedef enum {
     FUNCTION,
     INTEGER,
     DECIMAL,
+    COMPLEX,
+    BOOLEAN,
     SYMBOL,
     STRING,
     ERROR
@@ -57,15 +59,6 @@ typedef enum {
 
 
 typedef HashTable Context;
-
-// struct context {
-//     int count;
-//     int capacity;
-//     struct function {
-//         char *symbol;
-//         struct expr *exp;
-//     } **funcs;
-// };
 
 
 typedef struct expr *fun(Context *, struct expr *);
@@ -79,6 +72,7 @@ struct expr {
             int count;
             int capacity;
         };
+        bool value;
         char *string;
         char symbol[MAX_SYM_SIZE];
         char err[MAX_ERR_SIZE];
@@ -104,6 +98,10 @@ void expr_string(struct expr *, char *);
 void expr_integer(struct expr *, long long);
 
 void expr_decimal(struct expr *, double);
+
+void expr_complex(struct expr *, double);
+
+void expr_boolean(struct expr *, bool);
 
 void expr_operator(struct expr *, char);
 

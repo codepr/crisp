@@ -48,6 +48,14 @@ struct expr *builtin_list(Context *, struct expr *);
 
 struct expr *builtin_eval(Context *, struct expr *);
 
+struct expr *builtin_integer_abs(struct expr *, long long);
+
+struct expr *builtin_integer_sqrt(struct expr *, long long);
+
+struct expr *builtin_decimal_abs(struct expr *, double);
+
+struct expr *builtin_decimal_sqrt(struct expr *, double);
+
 struct expr *builtin_integer_op(struct expr *, char, long long, long long);
 
 struct expr *builtin_decimal_op(struct expr *, char, double, double);
