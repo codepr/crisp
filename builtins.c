@@ -192,7 +192,7 @@ struct expr *builtin_integer_abs(struct expr *exp, long long num) {
 
 struct expr *builtin_integer_sqrt(struct expr *exp, long long num) {
     if (num < 0)
-        expr_complex(exp, sqrt(num));
+        expr_complex(exp, sqrt(-1 * num));
     else
         expr_decimal(exp, sqrt(num));
     return exp;

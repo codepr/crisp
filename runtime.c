@@ -115,16 +115,16 @@ static void context_add_builtins(Context *ctx) {
     context_add_builtin(ctx, "=", builtin_eq);
 
     /* Q-expressions functions */
+    context_add_builtin(ctx, "abs", builtin_abs);
     context_add_builtin(ctx, "def", builtin_def);
     context_add_builtin(ctx, "len", builtin_len);
+    context_add_builtin(ctx, "sqrt", builtin_sqrt);
     context_add_builtin(ctx, "head", builtin_head);
     context_add_builtin(ctx, "tail", builtin_tail);
     context_add_builtin(ctx, "init", builtin_init);
     context_add_builtin(ctx, "last", builtin_last);
     context_add_builtin(ctx, "eval", builtin_eval);
     context_add_builtin(ctx, "list", builtin_list);
-    context_add_builtin(ctx, "sqrt", builtin_sqrt);
-    context_add_builtin(ctx, "abs", builtin_abs);
 }
 
 
@@ -264,7 +264,7 @@ static void expr_print(struct expr *exp) {
             printf("%lf ", exp->decimal);
             break;
         case COMPLEX:
-            printf("%lfi ", exp->decimal);
+            printf("0+%lfi ", exp->decimal);
             break;
         case BOOLEAN:
             printf("#%c ", exp->value == true ? 't' : 'f');
@@ -327,8 +327,30 @@ static struct expr *parse_expr(char **buf, bool *is_qexp, int *parens) {
         (*buf)++;
     } else if (**buf == '+' || **buf == '-' || **buf == '*'
                || **buf == '/' || **buf == '%' || **buf == '=') {
-        expr_operator(exp, **buf);
-        (*buf)++;
+        if (**buf == '-' && ('0' <= *((*buf)+1)  && *((*buf)+1) <= '9')) {
+            char tmp[MAX_ERR_SIZE];
+            int decimal = 0;
+            int i = 0;
+            tmp[i++] = **buf;
+            (*buf)++;
+            while (**buf && (('0' <= **buf && **buf <= '9') || **buf == '.')) {
+                if (**buf == '.')
+                    decimal = 1;
+                tmp[i++] = **buf;
+                (*buf)++;
+            }
+            tmp[i] = '\0';
+
+            long long n;
+            double d;
+            if (decimal == 0 && sscanf(tmp, "%lld", &n))
+                expr_integer(exp, n);
+            else if (sscanf(tmp, "%lf", &d))
+                expr_decimal(exp, d);
+        } else {
+            expr_operator(exp, **buf);
+            (*buf)++;
+        }
     } else if ('0' <= **buf && **buf <= '9') {
         char tmp[MAX_ERR_SIZE];
         int decimal = 0;
